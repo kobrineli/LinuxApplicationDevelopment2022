@@ -1,6 +1,7 @@
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define KEY_ESCAPE 27
 #define KEY_SPACE 32
@@ -21,38 +22,52 @@ init_screen(WINDOW *win, char *filename) {
 }
 
 char **
-init_page(size_t page_size, FILE *file) {
-    // TODO: process longer strings.
-    char **page = calloc(page_size, sizeof(*page));
-    if (!page) {
-        fprintf(stderr, "Error allocating space for page lines.\n");
+fill_buf(FILE *file, size_t page_size, size_t *sz) {
+    char **buf = calloc(page_size, sizeof(*buf));
+    if (!buf) {
+        fprintf(stderr, "Error allocating space for file buffer.\n");
         return NULL;
     }
 
-    for (size_t i = 0; i < page_size; ++i) {
-        page[i] = calloc(STRING_CHUNK, sizeof(**page));
-        if (!page[i]) {
-            fprintf(stderr, "Error allocating space for line.\n");
-            for (size_t j = 0; j < i; ++j) {
-                free(page[j]);
-            }
-            free(page);
-            return NULL;
+    char *s = calloc(STRING_CHUNK, sizeof(*s));
+    size_t filesz = 0;
+    size_t coef = 1;
+    while (fgets(s, STRING_CHUNK, file)) {
+        ++filesz;
+        if (filesz > coef * page_size) {
+            ++coef;
+            buf = realloc(buf, coef * page_size * sizeof(buf));
         }
-        fgets(page[i], STRING_CHUNK, file);
-    }
 
-    return page;
+        size_t len = strlen(s);
+        while (len >= 2 && s[len - 1] != '\n') {
+            s = realloc(s, len + STRING_CHUNK);
+            if (!fgets(s + len, STRING_CHUNK, file)) {
+                break;
+            }
+            len = strlen(s);
+        }
+
+        buf[filesz - 1] = s;
+        s = calloc(STRING_CHUNK, sizeof(*s));
+    }
+    free(s);
+
+    *sz = filesz > page_size ? filesz : page_size;
+    return buf;
 }
 
 int
-process_loop(WINDOW *win, char **page, size_t page_size, FILE *file) {
-    // TODO: process errors and key right/left pressing.
+process_loop(WINDOW *win, char **buf, size_t page_size, size_t total_size) {
+    // TODO: handle key_right/left pressing.
     unsigned lineoff = 0;
     for (;;) {
         werase(win);
         for (size_t i = 0; i < page_size; ++i) {
-            mvwprintw(win, i + 1, 1, "%3u: %s", i + lineoff + 1, page[i]);
+            if (i + lineoff < total_size) {
+                mvwprintw(win, i + 1, 1, "%3u: %s", i + lineoff + 1,
+                        buf[i + lineoff]);
+            }
         }
         box(win, 0, 0);
         wrefresh(win);
@@ -66,17 +81,36 @@ process_loop(WINDOW *win, char **page, size_t page_size, FILE *file) {
                 break;
             }
             case KEY_SPACE:
+            case KEY_DOWN:
             {
-                char *new_line = calloc(STRING_CHUNK, sizeof(*new_line));
-                if (!fgets(new_line, STRING_CHUNK, file)) {
-                    break;
+                if (lineoff < total_size - page_size) {
+                    ++lineoff;
                 }
-                ++lineoff;
-                free(page[0]);
-                for (size_t i = 0; i < page_size - 1; ++i) {
-                    page[i] = page[i + 1];
+                break;
+            }
+            case KEY_UP:
+            {
+                if (lineoff) {
+                    --lineoff;
                 }
-                page[page_size - 1] = new_line;
+                break;
+            }
+            case KEY_NPAGE:
+            {
+                lineoff += page_size;
+                if (lineoff >= total_size - page_size) {
+                    lineoff = total_size - page_size;
+                }
+                break;
+            }
+            case KEY_PPAGE:
+            {
+                if (lineoff <= page_size) {
+                    lineoff = 0;
+                } else {
+                    lineoff -= page_size;
+                }
+                break;
             }
         }
 
@@ -115,19 +149,20 @@ main(int argc, char **argv) {
     init_screen(win, argv[1]);
 
     const size_t page_size = win_lines - 2;
-    char **page = init_page(page_size, file);
-    if (!page) {
+    size_t total_size = 0;
+    char **buf = fill_buf(file, page_size, &total_size);
+    if (!buf) {
         return 1;
     }
-
-    process_loop(win, page, page_size, file);
-
-    for (size_t i = 0; i < page_size; ++i) {
-        free(page[i]);
-    }
-    free(page);
-
     fclose(file);
+
+    process_loop(win, buf, page_size, total_size);
+
+    for (size_t i = 0; i < total_size; ++i) {
+        free(buf[i]);
+    }
+    free(buf);
+
     endwin();
 
     return 0;
