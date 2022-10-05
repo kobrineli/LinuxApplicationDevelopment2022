@@ -59,14 +59,19 @@ fill_buf(FILE *file, size_t page_size, size_t *sz) {
 
 int
 process_loop(WINDOW *win, char **buf, size_t page_size, size_t total_size) {
-    // TODO: handle key_right/left pressing.
     unsigned lineoff = 0;
+    unsigned coloff = 0;
     for (;;) {
         werase(win);
         for (size_t i = 0; i < page_size; ++i) {
             if (i + lineoff < total_size) {
+                unsigned off = coloff;
+                size_t len = strlen(buf[i + lineoff]);
+                if (off > len) {
+                    off = len;
+                }
                 mvwprintw(win, i + 1, 1, "%3u: %s", i + lineoff + 1,
-                        buf[i + lineoff]);
+                        buf[i + lineoff] + off);
             }
         }
         box(win, 0, 0);
@@ -109,6 +114,18 @@ process_loop(WINDOW *win, char **buf, size_t page_size, size_t total_size) {
                     lineoff = 0;
                 } else {
                     lineoff -= page_size;
+                }
+                break;
+            }
+            case KEY_RIGHT:
+            {
+                ++coloff;
+                break;
+            }
+            case KEY_LEFT:
+            {
+                if (coloff) {
+                    --coloff;
                 }
                 break;
             }
