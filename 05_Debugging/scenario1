@@ -1,0 +1,15 @@
+set pagination off
+b range.c:15
+command 1
+  if i % 5 == 0
+    echo @@@\n
+    p init
+    p limit
+    p step
+    p i
+  end
+  c
+end
+
+run
+quit

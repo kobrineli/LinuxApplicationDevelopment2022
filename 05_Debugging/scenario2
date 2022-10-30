@@ -1,0 +1,18 @@
+set pagination off
+set $counter = 1
+print $counter
+b 15
+command 1
+  if $counter >= 28 && $counter <= 35
+     echo @@@\n
+     p init
+     p limit
+     p step
+     p i
+  end
+  set $counter = $counter + 1
+  c
+end
+
+run
+quit
