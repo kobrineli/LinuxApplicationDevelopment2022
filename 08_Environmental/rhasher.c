@@ -55,19 +55,18 @@ int
 main() {
     char *line = NULL;
     size_t sz = 0;
-    char delim = ' ';
 
     unsigned char digest[64];
     char output[130];
     rhash_library_init();
 
     while (invite(&line, &sz, stdin) != -1) {
-        char *hash_name = strtok(line, &delim);
+        char *hash_name = strtok(line, " ");
         if (!hash_name) {
             continue;
         }
 
-        char *arg = strtok(NULL, &delim);
+        char *arg = strtok(NULL, " ");
         if (!arg) {
             fprintf(stderr, "Error: the second argument is not specified.\n");
             continue;
