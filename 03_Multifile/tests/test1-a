@@ -1,0 +1,2 @@
+./prog-a v0.00: Print all arguments
+	Usage: ./prog-a arg1 [arg2 […]]
