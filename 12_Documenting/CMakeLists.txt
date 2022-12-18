@@ -4,6 +4,7 @@ project(guesser)
 add_executable(guesser guesser.c)
 
 include(FindGettext)
+include(FindDoxygen)
 
 if (GETTEXT_FOUND)
 
@@ -27,4 +28,16 @@ if (GETTEXT_FOUND)
         DEPENDS ${CMAKE_BINARY_DIR}/ru/LC_MESSAGES/guesser.mo)
 
     add_dependencies(guesser translation)
+endif()
+
+if (DOXYGEN_FOUND)
+    set(DOXYGEN_GENERATE_HTML YES)
+    set(DOXYGEN_GENERATE_MAN YES)
+
+    doxygen_add_docs(
+        docs
+        ${PROJECT_SOURCE_DIR}
+    )
+
+    add_dependencies(guesser docs)
 endif()
